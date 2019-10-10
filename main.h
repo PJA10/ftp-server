@@ -12,7 +12,7 @@
 #define PORT 21
 #define NUM_WORDS 32
 #define NUM_CHARS 32
-#define IP "192.168.1.22"
+#define IP "0.0.0.0"
 
 int ftpServer();
 void str_split(char* a_str, const char a_delim, char [NUM_CHARS][NUM_WORDS]);
