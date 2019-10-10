@@ -67,7 +67,7 @@ int ftpServer()
     {
         puts("Connection accepted");
         connection_handler((void *)new_socket);
-        HANDLE thread = CreateThread(NULL, 0, &connection_handler, (void *)new_socket, 0, NULL);
+        //HANDLE thread = CreateThread(NULL, 0, &connection_handler, (void *)new_socket, 0, NULL);
     }
 
     if (new_socket == INVALID_SOCKET)
@@ -174,19 +174,19 @@ void handleNLST(SOCKET socket, struct sockaddr_in dataAddress, DIR *dr) {
         struct dirent *de;  // Pointer for directory entry
 
         if ((de = readdir(dr)) != NULL) {
-            data = (char *)malloc(sizeof(char)*(1+strlen(de->d_name)));
+            data = malloc(sizeof(char)*(1+strlen(de->d_name)));
             if (data == NULL) {
 
                 return;
             }
-            snprintf(data, sizeof(data), "%s\n", de->d_name);
+            snprintf(data, sizeof(de->d_name), "%s\n", de->d_name);
         }
         printf("middle handleNLST\n");
         puts(data);
         while ((de = readdir(dr)) != NULL) {
-            data = (char *)realloc(data, sizeof(data) + sizeof(char)*(1+strlen(de->d_name)));
+            data = realloc(data, sizeof(data) + sizeof(char)*(1+strlen(de->d_name)));
             if (data == NULL) {
-                printf("something went wrong with malloc()! %s\n", strerror(errno));
+                printf("something went wrong with realloc()! %s\n", strerror(errno));
                 return;
             }
             snprintf((data + strlen(data)), sizeof(de->d_name), "%s\n", de->d_name);
@@ -295,7 +295,7 @@ struct sockaddr_in handlePORT(SOCKET socket, char tokens[NUM_CHARS][NUM_WORDS]) 
 }
 
 char *handleUSER(SOCKET socket, char tokens[NUM_CHARS][NUM_WORDS]) {
-    char *userName = (char *)malloc(sizeof(*(tokens + 1))+1);
+    char *userName = malloc(sizeof(*(tokens + 1))+1);
     strcpy(userName, *(tokens + 1));
     userName[strlen(userName)-2] = '\0';
     printf("user name is: %s\n", userName);
