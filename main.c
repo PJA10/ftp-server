@@ -66,8 +66,8 @@ int ftpServer()
     while((new_socket = accept(s, (struct sockaddr *)&client, &c)) != INVALID_SOCKET )
     {
         puts("Connection accepted");
-        connection_handler((void *)new_socket);
-        //HANDLE thread = CreateThread(NULL, 0, &connection_handler, (void *)new_socket, 0, NULL);
+        //connection_handler((void *)new_socket);
+        HANDLE thread = CreateThread(NULL, 0, &connection_handler, (void *)new_socket, 0, NULL);
     }
 
     if (new_socket == INVALID_SOCKET)
@@ -82,13 +82,13 @@ int ftpServer()
     return 0;
 }
 
+
 /*
  * This will handle connection for each sendDataViaNewConnection
  * */
 DWORD WINAPI connection_handler(void* socket_param)
 {
     SOCKET socket = (SOCKET) socket_param;
-    //struct dirent *de;
     int read_size;
     char *userName , client_message[2000];
     char command[6];
@@ -96,13 +96,14 @@ DWORD WINAPI connection_handler(void* socket_param)
     BOOLEAN isLoggedIn = FALSE;
     BOOLEAN isPassiveMode = FALSE;
     struct sockaddr_in dataAddress;
-    DIR *dr = opendir(".");
+    char* path = ".";
+    //DIR *dr = opendir(".");
 
-    if (dr == NULL)  // opendir returns NULL if couldn't open directory
+/*    if (dr == NULL)  // opendir returns NULL if couldn't open directory
     {
         printf("Could not open current directory" );
         return 0;
-    }
+    }*/
 
     send220(socket);
     printf("%s\n", IP);
@@ -126,17 +127,21 @@ DWORD WINAPI connection_handler(void* socket_param)
             if (strcmp(command, "PORT") == 0) {
                 dataAddress = handlePORT(socket, tokens);
             }
-            if (strcmp(command, "USER") == 0 || strcmp(command, "PASS") == 0) {
+            else if (strcmp(command, "USER") == 0 || strcmp(command, "PASS") == 0) {
                 send530(socket);
             }
-            if (strcmp(command, "NLST") == 0) {
-                if (dataAddress.sin_port != 0) {
-                    handleNLST(socket, dataAddress, dr);
-                }
+            else if (strcmp(command, "NLST") == 0) {
+                handleNLST(socket, dataAddress, path);
+            }
+            else if (strcmp(command, "XPWD") == 0 || strcmp(command, "PWD") == 0) {
+                send257(socket, path);
+            }
+            else if (strcmp(command, "RETR") == 0) {
+                handleRETR(socket, tokens, dataAddress, path);
             }
         }
         else if (strcmp(command, "USER") == 0) {
-            if ((isalpha(userName[0]) || isdigit(userName[0])) && (isalpha(userName[1]) || isdigit(userName[1]))) {
+            if (userName != NULL) {
                 free(userName);
             }
             userName = handleUSER(socket, tokens);
@@ -164,33 +169,70 @@ DWORD WINAPI connection_handler(void* socket_param)
     return 0;
 }
 
+void handleRETR(SOCKET socket, char tokens[32][32], struct sockaddr_in dataAddress, char *path) {
+    FILE *fp;
+    int fileSize;
+    char *data;
 
-void handleNLST(SOCKET socket, struct sockaddr_in dataAddress, DIR *dr) {
-    char *temp;
+    if (dataAddress.sin_port == 0) {
+        return;
+    }
+
+    if (tokens[1][strlen(tokens[1]) -2] == '\r')
+    {
+        tokens[1][strlen(tokens[1]) -2] = '\0';
+    }
+
+    fp = fopen(tokens[1], "rb");
+    if (fp == NULL) {
+        fprintf(stderr, "cannot open input file\n");
+        return;
+    }
+
+    fseek(fp, 0L, SEEK_END);
+    fileSize = ftell(fp);
+    rewind(fp);
+
+    data = (char *)malloc(1 + (fileSize)*sizeof(char)); // Enough memory for file + \0
+    fread(data, fileSize, 1, fp); // Read in the entire file
+    fclose(fp); // Close the file
+    data[fileSize] = '\0';
+    putc(data[fileSize], stdout);
+
+    send150(socket);
+    sendDataViaNewConnection(dataAddress, data);
+    send226(socket);
+    printf("before free\n");
+    free(data);
+    printf("after free\n");
+}
+
+void send257(SOCKET socket, char *path) {
+    int code = 257;
+    char message[100];
+    sprintf(message, "%d curr dir is \"%s\". Aviv is the best.\r\n", code, path);
+    send(socket , message , (int)strlen(message), 0);
+}
+
+void handleNLST(SOCKET socket, struct sockaddr_in dataAddress, char *path) {
+    char data[2048] = {0};
+    DIR *dr;
+    struct dirent *de;  // Pointer for directory entry
+
     printf("in handleNLST\n");
 
     if (dataAddress.sin_port != 0) {
-        char *data;
-        struct dirent *de;  // Pointer for directory entry
-
-        if ((de = readdir(dr)) != NULL) {
-            data = malloc(sizeof(char)*(1+strlen(de->d_name)));
-            if (data == NULL) {
-
-                return;
+        if ((dr = opendir (path)) != NULL) {
+            /* print all the files and directories within directory */
+            while ((de = readdir (dr)) != NULL) {
+                snprintf(data + strlen(data), sizeof(de->d_name), "%s\n", de->d_name);
             }
-            snprintf(data, sizeof(de->d_name), "%s\n", de->d_name);
+            closedir(dr);
         }
-        printf("middle handleNLST\n");
-        puts(data);
-        while ((de = readdir(dr)) != NULL) {
-            data = realloc(data, sizeof(data) + sizeof(char)*(1+strlen(de->d_name)));
-            if (data == NULL) {
-                printf("something went wrong with realloc()! %s\n", strerror(errno));
-                return;
-            }
-            snprintf((data + strlen(data)), sizeof(de->d_name), "%s\n", de->d_name);
-            puts(data);
+        else {
+            /* could not open directory */
+            perror("");
+            return;
         }
         send150(socket);
         sendDataViaNewConnection(dataAddress, data);
@@ -372,7 +414,7 @@ int sendDataViaNewConnection(struct sockaddr_in address, char *data)
     printf("Socket created.\n");
 
 
-    //Connect to remote ftpServer
+    //Connect to client
     if (connect(s, (struct sockaddr *)&address , sizeof(address)) < 0)
     {
         puts("connect error");
