@@ -96,14 +96,8 @@ DWORD WINAPI connection_handler(void* socket_param)
     BOOLEAN isLoggedIn = FALSE;
     BOOLEAN isPassiveMode = FALSE;
     struct sockaddr_in dataAddress;
-    char* path = ".";
-    //DIR *dr = opendir(".");
-
-/*    if (dr == NULL)  // opendir returns NULL if couldn't open directory
-    {
-        printf("Could not open current directory" );
-        return 0;
-    }*/
+    char path[248];
+    strcpy(path, ".");
 
     send220(socket);
     printf("%s\n", IP);
@@ -139,6 +133,9 @@ DWORD WINAPI connection_handler(void* socket_param)
             else if (strcmp(command, "RETR") == 0) {
                 handleRETR(socket, tokens, dataAddress, path);
             }
+            else if (strcmp(command, "CWD") == 0) {
+                handleCWD(socket, tokens, path);
+            }
         }
         else if (strcmp(command, "USER") == 0) {
             if (userName != NULL) {
@@ -169,10 +166,31 @@ DWORD WINAPI connection_handler(void* socket_param)
     return 0;
 }
 
-void handleRETR(SOCKET socket, char tokens[32][32], struct sockaddr_in dataAddress, char *path) {
+void handleCWD(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], char *path) {
+    char command[100];
+    int retValue;
+    if (tokens[1][strlen(tokens[1]) -2] == '\r')
+    {
+        tokens[1][strlen(tokens[1]) -2] = '\0';
+    }
+
+    sprintf(command, "cd %s && cd %s", path, tokens[1]);
+    retValue = system(command);
+    if (retValue == 0) {// command succsed
+        strcpy(path + strlen(path), "\\");
+        strcpy(path + strlen(path), tokens[1]);
+        send250(socket);
+    }
+    else {
+        send550(socket);
+    }
+}
+
+void handleRETR(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], struct sockaddr_in dataAddress, char *path) {
     FILE *fp;
     int fileSize;
     char *data;
+    char filePath[100];
 
     if (dataAddress.sin_port == 0) {
         return;
@@ -183,9 +201,12 @@ void handleRETR(SOCKET socket, char tokens[32][32], struct sockaddr_in dataAddre
         tokens[1][strlen(tokens[1]) -2] = '\0';
     }
 
-    fp = fopen(tokens[1], "rb");
+    sprintf(filePath, "%s\\%s", path, tokens[1]);
+
+    fp = fopen(filePath, "rb");
     if (fp == NULL) {
         fprintf(stderr, "cannot open input file\n");
+        send550(socket);
         return;
     }
 
@@ -215,7 +236,20 @@ void send257(SOCKET socket, char *path) {
 }
 
 void handleNLST(SOCKET socket, struct sockaddr_in dataAddress, char *path) {
-    char data[2048] = {0};
+    char command[100];
+    char tokens[NUM_WORDS][NUM_CHARS];
+
+    sprintf(command, "cd %s && dir /b > output.txt", path);
+    system(command);
+
+    strcpy(tokens[1], "output.txt");
+
+    handleRETR(socket, tokens, dataAddress, path);
+
+    sprintf(command, "del /f %s/output.txt", path);
+    system(command);
+
+    /*char data[2048] = {0};
     DIR *dr;
     struct dirent *de;  // Pointer for directory entry
 
@@ -223,27 +257,41 @@ void handleNLST(SOCKET socket, struct sockaddr_in dataAddress, char *path) {
 
     if (dataAddress.sin_port != 0) {
         if ((dr = opendir (path)) != NULL) {
-            /* print all the files and directories within directory */
+            *//* print all the files and directories within directory *//*
             while ((de = readdir (dr)) != NULL) {
                 snprintf(data + strlen(data), sizeof(de->d_name), "%s\n", de->d_name);
             }
             closedir(dr);
         }
         else {
-            /* could not open directory */
+            *//* could not open directory *//*
             perror("");
             return;
         }
         send150(socket);
         sendDataViaNewConnection(dataAddress, data);
         send226(socket);
-    }
+    }*/
 }
 
 void send220(SOCKET socket) {
     int code = 220;
     char message[100];
     sprintf(message, "%d Service ready for new user. Aviv is the best\r\n", code);
+    send(socket , message , (int)strlen(message), 0);
+}
+
+void send250(SOCKET socket) {
+    int code = 250;
+    char message[100];
+    sprintf(message, "%d Requested action okay, completed. Aviv is the best\r\n", code);
+    send(socket , message , (int)strlen(message), 0);
+}
+
+void send550(SOCKET socket) {
+    int code = 550;
+    char message[100];
+    sprintf(message, "%d Requested action not taken. File unavailable (e.g., file not found, no access).\r\n", code);
     send(socket , message , (int)strlen(message), 0);
 }
 

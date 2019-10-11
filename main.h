@@ -30,3 +30,6 @@ void send150(SOCKET socket);
 void send226(SOCKET socket);
 void send257(SOCKET socket, char *path);
 void handleRETR(SOCKET socket, char tokens[32][32], struct sockaddr_in dataAddress, char *path);
+void send550(SOCKET socket);
+void handleCWD(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], char *path);
+void send250(SOCKET socket);
