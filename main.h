@@ -1,4 +1,5 @@
-
+#include <unistd.h>
+#include <limits.h>
 #include <stdio.h>
 #include <winsock2.h>
 #include <pthread.h>
@@ -13,6 +14,7 @@
 #define NUM_WORDS 32
 #define NUM_CHARS 32
 #define IP "0.0.0.0"
+#define MAX_COMMAND 100 + MAX_PATH
 
 int ftpServer();
 void str_split(char* a_str, const char a_delim, char [NUM_CHARS][NUM_WORDS]);
@@ -34,3 +36,4 @@ void send550(SOCKET socket);
 void handleCWD(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], char *path);
 void send250(SOCKET socket);
 void handleLIST(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], struct sockaddr_in dataAddress, char *path);
+void handleDELE(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], char *path);

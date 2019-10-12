@@ -96,8 +96,11 @@ DWORD WINAPI connection_handler(void* socket_param)
     BOOLEAN isLoggedIn = FALSE;
     BOOLEAN isPassiveMode = FALSE;
     struct sockaddr_in dataAddress;
-    char path[248];
-    strcpy(path, ".");
+    char path[PATH_MAX];
+    if (getcwd(path, sizeof(path)) == NULL) {
+        perror("getcwd() error");
+        return 1;
+    }
 
     send220(socket);
     printf("%s\n", IP);
@@ -140,6 +143,9 @@ DWORD WINAPI connection_handler(void* socket_param)
             else if (strcmp(command, "LIST") == 0) {
                 handleLIST(socket, tokens, dataAddress, path);
             }
+            else if (strcmp(command, "DELE") == 0) {
+                handleDELE(socket, tokens, path);
+            }
         }
         else if (strcmp(command, "USER") == 0) {
             if (userName != NULL) {
@@ -170,8 +176,23 @@ DWORD WINAPI connection_handler(void* socket_param)
     return 0;
 }
 
+void handleDELE(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], char *path) {
+    char command[MAX_COMMAND];
+    int retValue;
+
+    sprintf(command, "del \"%s\\%s\"", path, tokens[1]);
+    retValue = system(command);
+
+    if (retValue == 0) {
+        send250(socket);
+    }
+    else{
+        send550(socket);
+    }
+}
+
 void handleCWD(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], char *path) {
-    char command[100];
+    char command[MAX_COMMAND];
     int retValue;
     if (tokens[1][strlen(tokens[1]) -2] == '\r')
     {
@@ -181,9 +202,20 @@ void handleCWD(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], char *path) {
     sprintf(command, "cd %s && cd %s", path, tokens[1]);
     retValue = system(command);
     if (retValue == 0) {// command succsed
-        strcpy(path + strlen(path), "\\");
-        strcpy(path + strlen(path), tokens[1]);
-        send250(socket);
+        if (strcmp(tokens[1], "..") == 0) {
+            if (strlen(path) < 4) {
+                send550(socket);
+            }
+            else {
+                char *lastSlash = strrchr(path, '\\');
+                lastSlash[0] = '\0';
+                send250(socket);
+            }
+        }
+        else {
+            sprintf(path, "%s\\%s", path, tokens[1]);
+            send250(socket);
+        }
     }
     else {
         send550(socket);
@@ -240,7 +272,7 @@ void send257(SOCKET socket, char *path) {
 }
 
 void handleLIST(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], struct sockaddr_in dataAddress, char *path) {
-    char command[100];
+    char command[MAX_COMMAND];
 
     if (strlen(tokens[1]) > 2 && tokens[1][strlen(tokens[1]) - 2] == '\r') {
         tokens[1][strlen(tokens[1]) - 2] = '\0';
@@ -249,55 +281,62 @@ void handleLIST(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], struct sockadd
     sprintf(command, "cd %s && dir %s> output.txt", path, tokens[1]);
     system(command);
 
-    strcpy(tokens[1], "output.txt");
+    FILE *fileptr1, *fileptr2;
+    char filePath[MAX_PATH];
+    int ch;
+    int delete_line = 1;
+    int temp = 1;
+    char * line = NULL;
+    size_t len = 0;
+    ssize_t read;
+
+    sprintf(filePath, "%s//output.txt", path);
+    //open file in read mode
+    fileptr1 = fopen(filePath, "r");
+
+    while ((read = getline(&line, &len, fileptr1)) != -1) {
+        if(strstr(line, "output.txt") != NULL) {
+            break;
+        }
+        delete_line++;
+    }
+
+    rewind(fileptr1);
+
+    //open new file in write mode
+    sprintf(filePath, "%s//replica.txt", path);
+    fileptr2 = fopen(filePath, "w");
+    ch = 0;
+    while ((ch = getc(fileptr1)) != EOF)
+    {
+        //except the line to be deleted
+        if (temp != delete_line)
+        {
+            //copy all lines in file replica.c
+            putc(ch, fileptr2);
+        }
+        if (ch == '\n')
+        {
+            temp++;
+        }
+    }
+    fclose(fileptr1);
+    fclose(fileptr2);
+    sprintf(filePath, "%s//output.txt", path);
+    remove(filePath);
+
+
+    strcpy(tokens[1], "replica.txt");
 
     handleRETR(socket, tokens, dataAddress, path);
 
-    sprintf(command, "del %s\\output.txt", path);
+    sprintf(command, "del \"%s\\replica.txt\"", path);
     system(command);
 }
 
 void handleNLST(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], struct sockaddr_in dataAddress, char *path) {
-    char command[100];
-
-    if (strlen(tokens[1]) > 2 && tokens[1][strlen(tokens[1]) -2] == '\r')
-    {
-        tokens[1][strlen(tokens[1]) -2] = '\0';
-    }
-
-    sprintf(command, "cd %s && dir /b %s> output.txt", path, tokens[1]);
-    system(command);
-
-    strcpy(tokens[1], "output.txt");
-
-    handleRETR(socket, tokens, dataAddress, path);
-
-    sprintf(command, "del %s\\output.txt", path);
-    system(command);
-
-    /*char data[2048] = {0};
-    DIR *dr;
-    struct dirent *de;  // Pointer for directory entry
-
-    printf("in handleNLST\n");
-
-    if (dataAddress.sin_port != 0) {
-        if ((dr = opendir (path)) != NULL) {
-            *//* print all the files and directories within directory *//*
-            while ((de = readdir (dr)) != NULL) {
-                snprintf(data + strlen(data), sizeof(de->d_name), "%s\n", de->d_name);
-            }
-            closedir(dr);
-        }
-        else {
-            *//* could not open directory *//*
-            perror("");
-            return;
-        }
-        send150(socket);
-        sendDataViaNewConnection(dataAddress, data);
-        send226(socket);
-    }*/
+    sprintf(tokens[1], "/b %s", tokens[1]);
+    handleLIST(socket, tokens, dataAddress, path);
 }
 
 void send220(SOCKET socket) {
