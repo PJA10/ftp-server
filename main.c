@@ -108,6 +108,7 @@ DWORD WINAPI connection_handler(void* socket_param)
         //send(socket , client_message , strlen(client_message), 0);
         client_message[read_size] = '\0';
         puts(client_message);
+        strcpy(tokens[1], "");
         str_split(client_message, ' ', tokens);//(&(&tokens[0])[0]));
         strcpy(command, tokens[0]);
         if (command[strlen(command) -2] == '\r')
@@ -125,7 +126,7 @@ DWORD WINAPI connection_handler(void* socket_param)
                 send530(socket);
             }
             else if (strcmp(command, "NLST") == 0) {
-                handleNLST(socket, dataAddress, path);
+                handleNLST(socket, tokens, dataAddress, path);
             }
             else if (strcmp(command, "XPWD") == 0 || strcmp(command, "PWD") == 0) {
                 send257(socket, path);
@@ -135,6 +136,9 @@ DWORD WINAPI connection_handler(void* socket_param)
             }
             else if (strcmp(command, "CWD") == 0) {
                 handleCWD(socket, tokens, path);
+            }
+            else if (strcmp(command, "LIST") == 0) {
+                handleLIST(socket, tokens, dataAddress, path);
             }
         }
         else if (strcmp(command, "USER") == 0) {
@@ -235,18 +239,40 @@ void send257(SOCKET socket, char *path) {
     send(socket , message , (int)strlen(message), 0);
 }
 
-void handleNLST(SOCKET socket, struct sockaddr_in dataAddress, char *path) {
+void handleLIST(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], struct sockaddr_in dataAddress, char *path) {
     char command[100];
-    char tokens[NUM_WORDS][NUM_CHARS];
 
-    sprintf(command, "cd %s && dir /b > output.txt", path);
+    if (strlen(tokens[1]) > 2 && tokens[1][strlen(tokens[1]) - 2] == '\r') {
+        tokens[1][strlen(tokens[1]) - 2] = '\0';
+    }
+
+    sprintf(command, "cd %s && dir %s> output.txt", path, tokens[1]);
     system(command);
 
     strcpy(tokens[1], "output.txt");
 
     handleRETR(socket, tokens, dataAddress, path);
 
-    sprintf(command, "del /f %s/output.txt", path);
+    sprintf(command, "del %s\\output.txt", path);
+    system(command);
+}
+
+void handleNLST(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], struct sockaddr_in dataAddress, char *path) {
+    char command[100];
+
+    if (strlen(tokens[1]) > 2 && tokens[1][strlen(tokens[1]) -2] == '\r')
+    {
+        tokens[1][strlen(tokens[1]) -2] = '\0';
+    }
+
+    sprintf(command, "cd %s && dir /b %s> output.txt", path, tokens[1]);
+    system(command);
+
+    strcpy(tokens[1], "output.txt");
+
+    handleRETR(socket, tokens, dataAddress, path);
+
+    sprintf(command, "del %s\\output.txt", path);
     system(command);
 
     /*char data[2048] = {0};

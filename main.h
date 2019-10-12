@@ -25,7 +25,7 @@ boolean handlePASS(SOCKET socket, char *userName, char tokens[NUM_CHARS][NUM_WOR
 void send221(SOCKET socket);
 struct sockaddr_in handlePORT(SOCKET socket, char tokens[NUM_CHARS][NUM_WORDS]);
 int sendDataViaNewConnection(struct sockaddr_in, char *);
-void handleNLST(SOCKET socket, struct sockaddr_in dataAddress, char *path);
+void handleNLST(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], struct sockaddr_in dataAddress, char *path);
 void send150(SOCKET socket);
 void send226(SOCKET socket);
 void send257(SOCKET socket, char *path);
@@ -33,3 +33,4 @@ void handleRETR(SOCKET socket, char tokens[32][32], struct sockaddr_in dataAddre
 void send550(SOCKET socket);
 void handleCWD(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], char *path);
 void send250(SOCKET socket);
+void handleLIST(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], struct sockaddr_in dataAddress, char *path);
