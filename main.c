@@ -178,17 +178,38 @@ DWORD WINAPI connection_handler(void* socket_param)
 
 void handleDELE(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], char *path) {
     char command[MAX_COMMAND];
-    int retValue;
+    FILE *outputFile;
+    char filePath[MAX_PATH];
+    int size;
 
-    sprintf(command, "del \"%s\\%s\"", path, tokens[1]);
-    retValue = system(command);
+    if (tokens[1][strlen(tokens[1]) -2] == '\r')
+    {
+        tokens[1][strlen(tokens[1]) -2] = '\0';
+    }
 
-    if (retValue == 0) {
+    sprintf(command, "cd %s && del %s 2> output.txt", path, tokens[1]);
+    system(command);
+
+    sprintf(filePath, "%s\\output.txt", path);
+    outputFile = fopen(filePath, "r");
+    if (outputFile == NULL) {
+        printf("error in gnalleDele\n");
+        return;
+    }
+    fseek (outputFile, 0, SEEK_END);
+    size = ftell(outputFile);
+
+    if (0 == size) {
+        // file is empty there was no error
         send250(socket);
     }
-    else{
+    else {
         send550(socket);
     }
+    fclose(outputFile);
+
+    sprintf(command, "del \"%s\\output.txt\"", path);
+    system(command);
 }
 
 void handleCWD(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], char *path) {
