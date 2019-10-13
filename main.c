@@ -33,7 +33,6 @@ int ftpServer()
     }
 
     printf("Socket created.\n");
-    printf("ftpServer.sin_addr.s_addr: %lu\n", server.sin_addr.s_addr);
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = inet_addr(IP);;
     server.sin_port = htons(PORT);

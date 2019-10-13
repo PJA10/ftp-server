@@ -8,7 +8,7 @@
 #include <ctype.h>
 #include <ws2tcpip.h>
 #include <dirent.h>
-#pragma comment(lib,"ws2_NUM_WORDS.lib") //Winsock Library
+#pragma comment(lib,"ws2_32.lib") //Winsock Library
 
 #define PORT 21
 #define NUM_WORDS 32
