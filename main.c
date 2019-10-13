@@ -84,7 +84,7 @@ int ftpServer()
 
 
 /*
- * This will handle connection for each sendDataViaNewConnection
+ * This will handle connection for each sendRecvDataViaNewConnection
  * */
 DWORD WINAPI connection_handler(void* socket_param)
 {
@@ -104,10 +104,10 @@ DWORD WINAPI connection_handler(void* socket_param)
 
     send220(socket);
     printf("%s\n", IP);
-    //Receive a message from sendDataViaNewConnection
+    //Receive a message from sendRecvDataViaNewConnection
     while( (read_size = recv(socket , client_message , 2000 , 0)) > 0 )
     {
-        //Send the message back to sendDataViaNewConnection
+        //Send the message back to sendRecvDataViaNewConnection
         //send(socket , client_message , strlen(client_message), 0);
         client_message[read_size] = '\0';
         puts(client_message);
@@ -146,6 +146,14 @@ DWORD WINAPI connection_handler(void* socket_param)
             else if (strcmp(command, "DELE") == 0) {
                 handleDELE(socket, tokens, path);
             }
+            else if (strcmp(command, "STOR") == 0) {
+                handleSTOR(socket, tokens, dataAddress, path);
+            }
+            else if (strcmp(command, "PASV") == 0) {
+            }
+            else {
+                send502(socket);
+            }
         }
         else if (strcmp(command, "USER") == 0) {
             if (userName != NULL) {
@@ -174,6 +182,30 @@ DWORD WINAPI connection_handler(void* socket_param)
     }
     printf("finished connection_handler\n");
     return 0;
+}
+
+void handleSTOR(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], struct sockaddr_in dataAddress, char *path) {
+    char data[BUFFER_SIZE];
+    FILE *newFilePtr;
+    char newFilePath[PATH_MAX];
+
+    if (tokens[1][strlen(tokens[1]) -2] == '\r')
+    {
+        tokens[1][strlen(tokens[1]) -2] = '\0';
+    }
+
+    send150(socket);
+    sendRecvDataViaNewConnection(dataAddress, data, TRUE);
+    send226(socket);
+
+    sprintf(newFilePath, "%s\\%s", path, tokens[1]);
+    newFilePtr = fopen(newFilePath, "w");
+    if (newFilePtr == NULL) {
+        printf("error in fopen in handleSTOR\n");
+        return;
+    }
+    fputs(data, newFilePtr);
+    fclose(newFilePtr);
 }
 
 void handleDELE(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], char *path) {
@@ -278,7 +310,7 @@ void handleRETR(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], struct sockadd
     putc(data[fileSize], stdout);
 
     send150(socket);
-    sendDataViaNewConnection(dataAddress, data);
+    sendRecvDataViaNewConnection(dataAddress, data, 0);
     send226(socket);
     printf("before free\n");
     free(data);
@@ -364,6 +396,13 @@ void send220(SOCKET socket) {
     int code = 220;
     char message[100];
     sprintf(message, "%d Service ready for new user. Aviv is the best\r\n", code);
+    send(socket , message , (int)strlen(message), 0);
+}
+
+void send502(SOCKET socket) {
+    int code = 502;
+    char message[100];
+    sprintf(message, "%d Command not implemented. Aviv is the best\r\n", code);
     send(socket , message , (int)strlen(message), 0);
 }
 
@@ -535,9 +574,10 @@ void str_split(char* a_str, const char a_delim, char result[NUM_CHARS][NUM_WORDS
     }
 }
 
-int sendDataViaNewConnection(struct sockaddr_in address, char *data)
+int sendRecvDataViaNewConnection(struct sockaddr_in address, char *data, boolean toRecv)
 {
     SOCKET s;
+    int recvSize;
 
     //Create a socket
     if((s = socket(AF_INET , SOCK_STREAM , 0 )) == INVALID_SOCKET)
@@ -556,15 +596,22 @@ int sendDataViaNewConnection(struct sockaddr_in address, char *data)
     }
 
     puts("Connected");
-
-    //Send some data
-    if (send(s, data, strlen(data), 0) < 0) {
-        puts("Send failed");
-        return 1;
+    if (toRecv == TRUE) {
+        if (recv(s, data, sizeof(data)/ sizeof(char), 0) < 0) {
+            puts("Send failed");
+            return 1;
+        }
     }
-    printf("data sent\n");
+    else {
+        //Send some data
+        if ((recvSize = send(s, data, strlen(data), 0)) <= 0) {
+            puts("recv failed");
+            return 1;
+        }
+        printf("data sent\n");
+    }
 
     closesocket(s);
-    printf("finished sendDataViaNewConnection\n");
+    printf("finished sendRecvDataViaNewConnection\n");
     return 0;
 }

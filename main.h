@@ -15,6 +15,7 @@
 #define NUM_CHARS 32
 #define IP "0.0.0.0"
 #define MAX_COMMAND 100 + MAX_PATH
+#define BUFFER_SIZE 50000
 
 int ftpServer();
 void str_split(char* a_str, const char a_delim, char [NUM_CHARS][NUM_WORDS]);
@@ -26,7 +27,7 @@ char *handleUSER(SOCKET socket, char tokens[NUM_CHARS][NUM_WORDS]);
 boolean handlePASS(SOCKET socket, char *userName, char tokens[NUM_CHARS][NUM_WORDS]);
 void send221(SOCKET socket);
 struct sockaddr_in handlePORT(SOCKET socket, char tokens[NUM_CHARS][NUM_WORDS]);
-int sendDataViaNewConnection(struct sockaddr_in, char *);
+int sendRecvDataViaNewConnection(struct sockaddr_in address, char *data, boolean toRecv);
 void handleNLST(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], struct sockaddr_in dataAddress, char *path);
 void send150(SOCKET socket);
 void send226(SOCKET socket);
@@ -37,3 +38,5 @@ void handleCWD(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], char *path);
 void send250(SOCKET socket);
 void handleLIST(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], struct sockaddr_in dataAddress, char *path);
 void handleDELE(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], char *path);
+void handleSTOR(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], struct sockaddr_in dataAddress, char *path);
+void send502(SOCKET socket);
