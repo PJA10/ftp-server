@@ -149,8 +149,6 @@ DWORD WINAPI connection_handler(void* socket_param)
             else if (strcmp(command, "STOR") == 0) {
                 handleSTOR(socket, tokens, dataAddress, path);
             }
-            else if (strcmp(command, "PASV") == 0) {
-            }
             else {
                 send502(socket);
             }
