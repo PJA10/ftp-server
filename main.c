@@ -316,7 +316,7 @@ void handleRETR(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], struct sockadd
 
 void send257(SOCKET socket, char *path) {
     int code = 257;
-    char message[100];
+    char message[100 + MAX_PATH];
     sprintf(message, "%d curr dir is \"%s\". Aviv is the best.\r\n", code, path);
     send(socket , message , (int)strlen(message), 0);
 }
@@ -385,7 +385,15 @@ void handleLIST(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], struct sockadd
 }
 
 void handleNLST(SOCKET socket, char tokens[NUM_WORDS][NUM_CHARS], struct sockaddr_in dataAddress, char *path) {
-    sprintf(tokens[1], "/b %s", tokens[1]);
+    if (strlen(tokens[1]) > 2 && tokens[1][strlen(tokens[1]) - 2] == '\r') {
+        tokens[1][strlen(tokens[1]) - 2] = '\0';
+    }
+    if (strcmp(tokens[1], "-l") == 0) {
+        strcpy(tokens[1], "");
+    }
+    else {
+        sprintf(tokens[1], "/b %s", tokens[1]);
+    }
     handleLIST(socket, tokens, dataAddress, path);
 }
 
